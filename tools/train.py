@@ -59,8 +59,9 @@ def parse_args():
 
 
 def main():
-    args = parse_args()
+    #os.environ['CUDA_VISIBLE_DEVICES'] = '1'  # set cuda visualization
 
+    args = parse_args()
     cfg = Config.fromfile(args.config)
     if args.options is not None:
         cfg.merge_from_dict(args.options)

@@ -122,3 +122,7 @@ work_dirs/
 
 # vim
 *.swp
+
+# logs
+dota-logs/
+*.log
