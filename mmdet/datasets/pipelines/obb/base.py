@@ -126,14 +126,29 @@ class LoadOBBAnnotations(LoadAnnotations):
     def _load_bboxes(self, results):
         ann_info = results['ann_info']
         gt_bboxes = ann_info['bboxes'].copy()
-        results['gt_bboxes'] = bt.bbox2type(gt_bboxes, 'hbb')
+        results['gt_bboxes'] = bt.bbox2type(gt_bboxes, 'hbb')  # 生成hbb的ground truth
         results['bbox_fields'].append('gt_bboxes')
+
+        ######################################## begin: for road marking orientation #########################
+        # gt_orients = bt.polybbox2orient(gt_bboxes)
+        # results['gt_orients'] = gt_orients
+        # gt_orients_ignore = np.zeros(len(gt_orients),  dtype=np.uint8)
+        # gt_labels = ann_info['labels'].copy()
+        # for k in range(len(gt_labels)):
+        #     if gt_labels[k] == 6 or gt_labels[k] == 7 or gt_labels[k] == 10 or gt_labels[k] == 11 or gt_labels[k] == 12:
+        #         gt_orients_ignore[k] = 1  # 这几个类别不预测正方向
+        # results['gt_orients_ignore'] = gt_orients_ignore
+        # print('gt_orients', gt_orients.shape)
+        # print('gt_orients_ignore: ', gt_orients_ignore.shape)
+        ####################################### end: for road marking orientation #############################
+        #results['bbox_fields'].append('gt_orient') # no need to scale, so not put in the 'bbox_fields'
 
         if self.with_poly_as_mask:
             h, w = results['img_info']['height'], results['img_info']['width']
-            polys = bt.bbox2type(gt_bboxes.copy(), 'poly')
+            polys = bt.bbox2type(gt_bboxes.copy(), 'poly')     # 生成poly类型的obb
             mask_type = 'bitmap' if self.poly2mask else 'polygon'
             gt_masks = poly2mask(polys, w, h, mask_type)
+            #print('ground truth mask: ', gt_masks)
             results['gt_masks'] = gt_masks
             results['mask_fields'].append('gt_masks')
 
@@ -254,6 +269,7 @@ class OBBDefaultFormatBundle(DefaultFormatBundle):
                 results[key] = results[key].astype(np.float32)
             results[key] = DC(to_tensor(results[key]))
         if 'gt_masks' in results:
+            results['gt_masks'] = DC(results['gt_masks'], cpu_only=True)
             results['gt_masks'] = DC(results['gt_masks'], cpu_only=True)
         if 'gt_semantic_seg' in results:
             results['gt_semantic_seg'] = DC(

@@ -83,6 +83,29 @@ def arb2result(bboxes, labels, num_classes, bbox_type='hbb'):
         labels = labels.cpu().numpy()
         return [bboxes[labels == i, :] for i in range(num_classes)]
 
+# cat 属性到bbox的最后一维度
+def arb2result_attr(bboxes, labels, attrs, num_classes, bbox_type='hbb'):
+    assert bbox_type in ['hbb', 'obb', 'poly']
+    bbox_dim = get_bbox_dim(bbox_type, with_score=True)
+
+    if bboxes.shape[0] == 0:
+        return [np.zeros((0, bbox_dim), dtype=np.float32) for i in range(num_classes)]
+    else:
+        bboxes = bboxes.cpu().numpy()
+        labels = labels.cpu().numpy()
+        attrs = attrs.cpu().numpy()
+        attrs = np.expand_dims(attrs, axis=1)
+        # print('predicted bboxes:', bboxes)
+        # print('predicted labels:', labels)
+        # print('predicted attrs:', attrs)
+        print('predicted attrs:', attrs.shape)
+        print('predicted bboxes:', bboxes.shape)
+        # print('predicted bboxes:', bboxes.shape[0])
+        # print('predicted attrs:', attrs.shape[0])
+
+        assert len(bboxes) == len(attrs)
+        bboxes = np.concatenate((bboxes, attrs), axis=1)
+        return [bboxes[labels == i, :] for i in range(num_classes)]
 
 def arb2roi(bbox_list, bbox_type='hbb'):
     assert bbox_type in ['hbb', 'obb', 'poly']

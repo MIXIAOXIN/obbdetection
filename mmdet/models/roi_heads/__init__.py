@@ -20,6 +20,8 @@ from .obb.obb_standard_roi_head import OBBStandardRoIHead
 from .obb.gv_ratio_roi_head import GVRatioRoIHead
 from .obb.obb_double_roi_head import OBBDoubleHeadRoIHead
 
+from .obb.obba_standard_roi_head import OBBAStandardRoIHead
+
 __all__ = [
     'BaseRoIHead', 'CascadeRoIHead', 'DoubleHeadRoIHead', 'MaskScoringRoIHead',
     'HybridTaskCascadeRoIHead', 'GridRoIHead', 'ResLayer', 'BBoxHead',
@@ -29,4 +31,5 @@ __all__ = [
     'PointRendRoIHead', 'MaskPointHead', 'CoarseMaskHead', 'DynamicRoIHead',
 
     'RoITransRoIHead'
+    ,'OBBAStandardRoIHead'
 ]

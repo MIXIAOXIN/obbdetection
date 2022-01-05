@@ -6,4 +6,4 @@ from .mapping import (hbb_flip, obb_flip, poly_flip, hbb_warp, obb_warp,
                       arb_mapping, arb_mapping_back)
 from .misc import (get_bbox_type, get_bbox_dim, get_bbox_areas, choice_by_type,
                    arb2result, arb2roi, distance2obb, regular_theta, regular_obb,
-                   mintheta_obb)
+                   mintheta_obb, arb2result_attr)

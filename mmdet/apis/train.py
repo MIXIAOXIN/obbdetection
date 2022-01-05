@@ -2,6 +2,8 @@ import random
 
 import numpy as np
 import torch
+import mmcv
+import cv2
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (DistSamplerSeedHook, EpochBasedRunner, OptimizerHook,
                          build_optimizer)
@@ -10,6 +12,7 @@ from mmdet.core import DistEvalHook, EvalHook, Fp16OptimizerHook
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.utils import get_root_logger
 
+from BboxToolkit import imshow_bboxes
 
 def set_random_seed(seed, deterministic=False):
     """Set random seed.
@@ -65,6 +68,41 @@ def train_detector(model,
             dist=distributed,
             seed=cfg.seed) for ds in dataset
     ]
+
+    ##################### VISIALIZATION BEGIN ##################################
+    # print('len of data_loader: ', len(data_loaders))
+    # data_loader = data_loaders[0]
+    # for i, data_batch in enumerate(data_loader):
+    #     #print(list(data_batch.keys()))
+    #     #print('img metas: ', data_batch['img_metas'])
+    #     #print('image metas filename: ', data_batch['img_metas'].data[0][0]['filename'])
+    #     img_batch = data_batch['img']._data[0]
+    #     gt_label = data_batch['gt_labels']._data[0]
+    #     gt_bbox = data_batch['gt_bboxes']._data[0]
+    #     gt_obbox = data_batch['gt_obboxes']._data[0]
+    #     # print('image batch shape: ', img_batch.shape)
+    #     # print('gt_bbox shape: ', gt_bbox.shape)
+    #     #print('gt_obbox shape: ', gt_obbox.shape)
+    #     for batch_i in range(len(img_batch)):
+    #         img = img_batch[batch_i]
+    #         labels = gt_label[batch_i].numpy()
+    #         bboxes = gt_bbox[batch_i].numpy()
+    #         obboxes = gt_obbox[batch_i].numpy()
+    #         mean_value = np.array(cfg.img_norm_cfg['mean'])
+    #         std_value = np.array(cfg.img_norm_cfg['std'])
+    #         img_hwc = np.transpose(img.numpy(), [1, 2, 0])
+    #         img_numpy_float = mmcv.imdenormalize(img_hwc, mean_value, std_value)
+    #         img_numpy_uint8 = np.array(img_numpy_float, np.uint8)
+    #         # print(labels)
+    #         # 参考mmcv.imshow_bboxes
+    #         assert bboxes.ndim == 2
+    #         assert labels.ndim == 1
+    #         assert bboxes.shape[0] == labels.shape[0] and obboxes.shape[0] == labels.shape[0]
+    #         assert bboxes.shape[1] == 4 or bboxes.shape[1] == 5
+    #         assert obboxes.shape[1] == 8 or obboxes.shape[1] == 5
+    #         #imshow_bboxes(img_numpy_uint8, bboxes, labels)
+    #         #imshow_bboxes(img_numpy_uint8, obboxes, labels)
+    ##################### VISIALIZATION END ##################################
 
     # put model on gpus
     if distributed:

@@ -17,8 +17,8 @@ from mmdet.models import build_detector
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('config', help='test config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--config', type=str, default='./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_1x_ms_rr_roadmark.py', help='test config file path')
+    parser.add_argument('--checkpoint', type=str, default='./../roadmark-logs/epoch_24.pth', help='checkpoint file')
     parser.add_argument('--out', help='output result file in pickle format')
     parser.add_argument(
         '--fuse-conv-bn',
@@ -35,11 +35,15 @@ def parse_args():
         '--eval',
         type=str,
         nargs='+',
+        default='mAP',
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC')
     parser.add_argument('--show', action='store_true', help='show results')
     parser.add_argument(
-        '--show-dir', help='directory where painted images will be saved')
+        '--show-dir',
+        type=str,
+        default='./../roadmark-results',
+        help='directory where painted images will be saved')
     parser.add_argument(
         '--show-score-thr',
         type=float,
@@ -124,6 +128,7 @@ def main():
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
         model.CLASSES = dataset.CLASSES
+
 
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])

@@ -125,4 +125,8 @@ work_dirs/
 
 # logs
 dota-logs/
+roadmark-logs/
 *.log
+
+# new tools
+DetVisGUI/
