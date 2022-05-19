@@ -39,8 +39,8 @@ def rectpoly2obb(polys):
     Matrix = torch.stack([Cos, -Sin, Sin, Cos], dim=-1)
     Matrix = Matrix.view(*Matrix.shape[:-1], 2, 2)
 
-    x = polys[..., 0::2].mean(-1)
-    y = polys[..., 1::2].mean(-1)
+    x = polys[..., 0::2].mean(-1) # 从第0个开始，每间隔2个索引
+    y = polys[..., 1::2].mean(-1) # 从第1个开始，每间隔2个索引
     center = torch.stack([x, y], dim=-1).unsqueeze(-2)
     center_polys = polys.view(*polys.shape[:-1], 4, 2) - center
     rotate_polys = torch.matmul(center_polys, Matrix.transpose(-1, -2))

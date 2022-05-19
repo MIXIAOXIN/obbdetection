@@ -183,6 +183,7 @@ class OBBAStandardRoIHead(OBBBaseRoIHead, OBBoxTestMixin):
 
         return bbox_results
 
+    # 测试时，入口函数
     def simple_test(self,
                     x,
                     proposal_list,
@@ -192,7 +193,7 @@ class OBBAStandardRoIHead(OBBBaseRoIHead, OBBoxTestMixin):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
 
-        det_bboxes, det_labels, det_attrs = self.simple_test_bboxes(
+        det_bboxes, det_labels, det_attrs = self.simple_test_bboxes(  # 该类中的函数
             x, img_metas, proposal_list, self.test_cfg, rescale=rescale)
         bbox_results = arb2result_attr(det_bboxes, det_labels, det_attrs, self.bbox_head.num_classes,
                                   bbox_type=self.bbox_head.end_bbox_type)
@@ -237,7 +238,7 @@ class OBBAStandardRoIHead(OBBBaseRoIHead, OBBoxTestMixin):
         bbox_results = self._bbox_forward(x, rois)
         img_shape = img_metas[0]['img_shape']
         scale_factor = img_metas[0]['scale_factor']
-        det_bboxes, det_labels, det_attrs = self.bbox_head.get_bboxes(
+        det_bboxes, det_labels, det_attrs = self.bbox_head.get_bboxes(  # 进入obba_head.get_bboxes
             rois,
             bbox_results['cls_score'],
             bbox_results['bbox_pred'],

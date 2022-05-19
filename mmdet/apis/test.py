@@ -34,7 +34,6 @@ def single_gpu_test(model,
             for img, img_meta in zip(imgs, img_metas):
                 h, w, _ = img_meta['img_shape']
                 img_show = img[:h, :w, :]
-
                 ori_h, ori_w = img_meta['ori_shape'][:-1]
                 img_show = mmcv.imresize(img_show, (ori_w, ori_h))
 
@@ -43,18 +42,19 @@ def single_gpu_test(model,
                 else:
                     out_file = None
 
-                model.module.show_result(
-                    img_show,
-                    result,
-                    show=show,
-                    out_file=out_file,
-                    score_thr=show_score_thr)
+                # model.module.show_result_attr(
+                #     img_show,
+                #     result,
+                #     show=show,
+                #     out_file=out_file,
+                #     score_thr=show_score_thr)
 
         # encode mask results
         if isinstance(result, tuple):
             bbox_results, mask_results = result
             encoded_mask_results = encode_mask_results(mask_results)
             result = bbox_results, encoded_mask_results
+            print('we encode the mask finally....')
         results.append(result)
 
         batch_size = len(data['img_metas'][0].data)

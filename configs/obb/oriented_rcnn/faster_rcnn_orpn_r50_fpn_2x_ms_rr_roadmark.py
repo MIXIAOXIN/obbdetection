@@ -1,8 +1,8 @@
-_base_ = './faster_rcnn_orpn_r50_fpn_1x_roadmark.py'
+_base_ = './faster_rcnn_orpn_r50_fpn_2x_roadmark.py'
 
 # dataset
 dataset_type = 'ROADMARKDataset'
-data_root = './../data/roadmarking/'
+data_root = './../data/roadmarking-30m/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 train_pipeline = [
@@ -70,12 +70,12 @@ test_pipeline = [
 # disable evluation, only need train and test
 # uncomments it when use trainval as train
 data = dict(
-    samples_per_gpu=3,
+    samples_per_gpu=4,
     workers_per_gpu=4,  # for run： 4
     train=dict(
         type=dataset_type,
         task='Task1',
-        imgset=data_root + 'trainval-augment.txt',
+        imgset=data_root + 'trainval-aug.txt',
         ann_file=data_root + 'labelTxt/',
         img_prefix=data_root + 'images/',
         pipeline=train_pipeline),

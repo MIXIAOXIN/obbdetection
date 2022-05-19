@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/datasets/roadmark.py',
-    '../_base_/schedules/schedule_1x.py',
+    '../_base_/schedules/schedule_2x.py',
     '../../_base_/default_runtime.py'
 ]
 
@@ -28,7 +28,7 @@ model = dict(
         feat_channels=256,
         anchor_generator=dict(
             type='AnchorGenerator',
-            scales=[8],
+            scales=[8],  # anchor_base_scale: 8
             ratios=[0.5, 1.0, 2.0],
             strides=[4, 8, 16, 32, 64]),
         bbox_coder=dict(
@@ -63,8 +63,17 @@ model = dict(
                 type='CrossEntropyLoss',
                 use_sigmoid=False,
                 loss_weight=1.0),
-            loss_bbox=dict(type='SmoothL1Loss', beta=1.0,
-                           loss_weight=1.0))))
+            loss_bbox=dict(
+                type='SmoothL1Loss',
+                beta=1.0,
+                loss_weight=1.0),
+            # loss_attr=dict(
+            #     type='CrossEntropyLoss',
+            #     use_sigmoid=False,
+            #     loss_weight=1.0
+            #     #reduction='none'
+            #     ),
+            )))
 # model training and testing settings
 train_cfg = dict(
     rpn=dict(

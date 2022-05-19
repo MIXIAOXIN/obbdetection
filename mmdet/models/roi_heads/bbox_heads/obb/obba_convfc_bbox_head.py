@@ -243,6 +243,8 @@ class OBBAConvFCBBoxHead(OBBoxAHead):
                 pos_bbox_targets = pos_gt_bboxes
             bbox_targets[:num_pos, :] = pos_bbox_targets
             bbox_weights[:num_pos, :] = 1
+            # enlarge angle weight
+            bbox_weights[:, -1] *= 2
             # orient = pos_gt_masks_data[:, 1] - pos_gt_masks_data[:, 5]
             # orient = (orient > 0.0)
             # print('orient: ', orient.shape)
@@ -257,7 +259,7 @@ class OBBAConvFCBBoxHead(OBBoxAHead):
 
         if num_neg > 0:
             label_weights[-num_neg:] = 1.0
-
+        #print('bbox_weights in get_targets_single_func: ', bbox_weights)
         return labels, label_weights, bbox_targets, bbox_weights, attr_targets, attr_weights
 
     def get_targets(self,
@@ -338,40 +340,34 @@ class OBBAConvFCBBoxHead(OBBoxAHead):
                     bbox_weights[pos_inds.type(torch.bool)],
                     avg_factor=bbox_targets.size(0),
                     reduction_override=reduction_override)
+                # print('bbox_weights in second_stage_loss_func: ', bbox_weights, '\n',
+                #       'pos_bbox_pred: ', pos_bbox_pred, '\n',
+                #       'bbox_targets: ', bbox_targets[pos_inds.type(torch.bool)])
+
             else:
                 losses['loss_bbox'] = bbox_pred.sum() * 0
         if attr_score is not None:
             avg_factor = max(torch.sum(attr_weights > 0).float().item(), 1.)  # 参与分母计算的数值
-            #print('acls_score: ', acls_score)
-            #print('acls_score,shape: ', acls_score.shape)
-            #print('attr targets: ', attr_targets)
-            #print('attr targets shape: ', attr_targets.shape)
-            # if self.use_sigmoid_acls:
-            #     #acls_score = acls_score.reshape(-1)
-            #     acls_scores = acls_score.sigmoid()
-            # else:
-            #     #acls_score = acls_score.reshape(-1, 2)
-            #     acls_scores = acls_score.softmax(dim=1)[:, 1]
-            #print('acls_score 2 : ', acls_scores)
-            #print('acls_score,shape 2: ', acls_scores.shape)
+            if self.use_sigmoid_attr:
+                attr_score = attr_score.sigmoid()
 
             if attr_score.numel() > 0:
-                # print('attr_score', attr_score)
                 losses['loss_attr'] = self.loss_attr(
-                    attr_score,
-                    attr_targets,
-                    weight=attr_weights,
+                    attr_score.reshape(-1),
+                    attr_targets.reshape(-1),
+                    attr_weights,
                     avg_factor=avg_factor,
-                    reduction_override=reduction_override)
-                losses['num_pos_targets'] = torch.sum(attr_weights > 0).float()
+                    reduction_override='mean')
+                # losses['num_pos_targets'] = torch.sum(attr_weights > 0).float()
+                # loss_iou=(self.loss_attr(
+                #     attr_score.reshape(-1, 1),
+                #     attr_targets.reshape(-1, 1),
+                #     reduction_override='none'
+                # )*attr_weights.reshape(-1, 1).float()
+                # ).sum() / avg_factor
+                #
+                # losses['test_cross_entropy_loss'] = loss_iou
 
-                loss_iou=(self.loss_attr(
-                    attr_score.reshape(-1, 1),
-                    attr_targets.reshape(-1, 1),
-                )*attr_weights.reshape(-1, 1).float()
-                ).sum() / avg_factor
-
-                losses['test_cross_entropy_loss'] = loss_iou
             else:
                 losses['loss_attr'] = 0
 
@@ -389,7 +385,7 @@ class OBBAConvFCBBoxHead(OBBoxAHead):
         bbox_results = self._bbox_forward(x, rois)
         img_shape = img_metas[0]['img_shape']
         scale_factor = img_metas[0]['scale_factor']
-        det_bboxes, det_labels, det_attr = self.bbox_head.get_bboxes(
+        det_bboxes, det_labels, det_attr = self.bbox_head.get_bboxes( # 跳转到obbxa_head.get_bboxes
             rois,
             bbox_results['cls_score'],
             bbox_results['bbox_pred'],

@@ -20,7 +20,7 @@ from mmdet.utils import collect_env, get_root_logger
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
-    parser.add_argument('--config', type=str, default='./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_1x_ms_rr_roadmark.py', help='train config file path') #./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_1x_ms_rr_dota15.py
+    parser.add_argument('--config', type=str, default='./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_2x_ms_rr_roadmark.py', help='train config file path') #./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_1x_ms_rr_dota15.py
     parser.add_argument('--work-dir', type=str, default='./../roadmark-logs', help='the dir to save logs and models')
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
@@ -32,12 +32,13 @@ def parse_args():
     group_gpus.add_argument(
         '--gpus',
         type=int,
+        #default=2,
         help='number of gpus to use '
         '(only applicable to non-distributed training)')
     group_gpus.add_argument(
         '--gpu-ids',
         type=list,
-        #default=[1],
+        default=[0],
         nargs='+',
         help='ids of gpus to use '
         '(only applicable to non-distributed training)')
@@ -51,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
-        default='none',
+        default='none', #default is none
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()

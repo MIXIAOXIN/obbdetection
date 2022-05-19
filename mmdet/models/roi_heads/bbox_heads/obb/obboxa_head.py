@@ -39,8 +39,8 @@ class OBBoxAHead(nn.Module):
                  loss_attr=dict(
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
-                     #loss_weight=1.0
-                     reduction='none'
+                     loss_weight=0.2,
+                     #reduction='mean'
                  ),
                  ):
         super(OBBoxAHead, self).__init__()

@@ -72,6 +72,9 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
+        # print(
+        #     'ground truth bboxes in oriented rpn head: ', gt_bboxes
+        # )
         losses = super(OrientedRPNHead, self).loss(
             cls_scores,
             bbox_preds,
@@ -79,6 +82,8 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
             None,
             img_metas,
             gt_bboxes_ignore=gt_bboxes_ignore)
+
+        #print('loss in oriented rpn head: ', losses)
         return dict(
             loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox'])
 
@@ -123,6 +128,8 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
             rpn_cls_score = cls_scores[idx]
             rpn_bbox_pred = bbox_preds[idx]
             assert rpn_cls_score.size()[-2:] == rpn_bbox_pred.size()[-2:]
+            # print('cls score size: ', rpn_cls_score.size(), '\n',  # 3 * p_height * p_width  每个feature pyrimid layer的每个位置有3个anchor，每个anchor回归1个类别和6个回归参数
+            #       'bbox pred size: ', rpn_bbox_pred.size())        # 3 * 6 * p_height * p_width
             rpn_cls_score = rpn_cls_score.permute(1, 2, 0)
             if self.use_sigmoid_cls:
                 rpn_cls_score = rpn_cls_score.reshape(-1)
@@ -139,6 +146,7 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
                 # sort is faster than topk
                 # _, topk_inds = scores.topk(cfg.nms_pre)
                 ranked_scores, rank_inds = scores.sort(descending=True)
+                # print('cfg.nms_pre ', cfg.nms_pre), 每层取前2000个bbox
                 topk_inds = rank_inds[:cfg.nms_pre]
                 scores = ranked_scores[:cfg.nms_pre]
                 rpn_bbox_pred = rpn_bbox_pred[topk_inds, :]
@@ -146,16 +154,17 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
             mlvl_scores.append(scores)
             mlvl_bbox_preds.append(rpn_bbox_pred)
             mlvl_valid_anchors.append(anchors)
-            level_ids.append(
+            level_ids.append( # 记录每层的bbox的数量
                 scores.new_full((scores.size(0), ), idx, dtype=torch.long))
 
         scores = torch.cat(mlvl_scores)
         anchors = torch.cat(mlvl_valid_anchors)
         rpn_bbox_pred = torch.cat(mlvl_bbox_preds)
-        proposals = self.bbox_coder.decode(
+        proposals = self.bbox_coder.decode(  # decode
             anchors, rpn_bbox_pred, max_shape=img_shape)
+        #print('proposal shape after decode: ', proposals.shape) # torch.Size([8624, 5]): (x, y, w, h, \theta)
         ids = torch.cat(level_ids)
-
+        # print('min bbox size: ', cfg.min_bbox_size)， 0
         if cfg.min_bbox_size > 0:
             w, h = proposals[:, 2], proposals[:, 3]
             valid_inds = torch.nonzero(
@@ -172,6 +181,9 @@ class OrientedRPNHead(RPNTestMixin, OBBAnchorHead):
         nms_cfg = dict(type='nms', iou_thr=cfg.nms_thr)
         _, keep = arb_batched_nms(hproposals, scores, ids, nms_cfg)
 
+        #print('before nms, detections: ', proposals.shape) # 8720
         dets = torch.cat([proposals, scores[:, None]], dim=1)
         dets = dets[keep]
+        #print('after nms, detections : ', len(dets)) # delete small size
+        # print('cfg.nms_post', cfg.nms_post)   # this value is 2000
         return dets[:cfg.nms_post]

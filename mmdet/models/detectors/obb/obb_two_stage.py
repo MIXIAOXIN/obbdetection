@@ -81,9 +81,29 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
     def extract_feat(self, img):
         """Directly extract features from the backbone+neck
         """
+        #print('image shape ', img.shape): img.shape=(batch_size, channel_in, height_in, width_in), (heigh_in, width_in) <= 1024
         x = self.backbone(img)
+        # print('after backbone feature map shape ', len(x))
+        # print("feature map 0: ", x[0].shape)
+        # print("feature map 1: ", x[1].shape)
+        # print("feature map 1: ", x[2].shape)
+        # print("feature map 1: ", x[3].shape)
+        # backbone 特征提取后，网络使用的是resnet-50，故特征维度有4层：c2，c3，c4，c5，
+        # 每个维度的shape如下： h 和 w 分别是经resize后的图像的高、宽
+        # c2：batch_size * 256 * h/4 * w/4
+        # c3：batch_size * 512 * h/8 * w/8
+        # c4：batch_size * 1024 * h/16 * w/16
+        # c5：batch_size * 2048 * h/32 * w/32
         if self.with_neck:
             x = self.neck(x)
+        # 经过neck模块中的fpn，feature map的层数为5层：p2,p3,p4,p5,p6(其中p2是由c1 1*1卷积得到，p3是由c3 1*1卷积和p2上采样相加得到，p4，p5与p3类似，p6是p5上采样的结果)
+        # p2：batch_size * 256 * h/4 * w/4
+        # p3: batch_size * 256 * h/8 * w/8
+        # p4: batch_size * 256 * h/16 * w/16
+        # p5: batch_size * 256 * h/32 * w/32
+        # p6: batch_size * 256 * h/64 * w/64
+        # for f_l in x:
+        #     print('after fpn', f_l.shape)
         return x
 
     def forward_dummy(self, img):
@@ -94,6 +114,7 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
         outs = ()
         # backbone
         x = self.extract_feat(img)
+        # 此时的feature map有5层
         # rpn
         proposal_type = 'hbb'
         if self.with_rpn:
@@ -152,10 +173,13 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+
         x = self.extract_feat(img)
 
         losses = dict()
-
+        # print(
+        #     'ground truth bboxes: ', gt_bboxes
+        # )
         # RPN forward and loss
         if self.with_rpn:
             proposal_type = getattr(self.rpn_head, 'bbox_type', 'hbb')
@@ -165,14 +189,18 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
 
             proposal_cfg = self.train_cfg.get('rpn_proposal',
                                               self.test_cfg.rpn)
-            rpn_losses, proposal_list = self.rpn_head.forward_train(
+            # print('target bboxes in obb two stage: ', target_bboxes)
+            rpn_losses, proposal_list = self.rpn_head.forward_train(  # base_dense_head.py --> oriented_rpn_head.py --> onn_anchor_head.py
                 x,
                 img_metas,
                 target_bboxes,
                 gt_labels=None,
                 gt_bboxes_ignore=target_bboxes_ignore,
                 proposal_cfg=proposal_cfg)
+            # print('losses: before update rpn_losses: ', losses)
             losses.update(rpn_losses)
+            # print('losses: after update rpn_losses: ', losses)
+            #print('we get proposals and loss from base_dense_head.py')
         else:
             proposal_list = proposals
 
@@ -181,7 +209,9 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
                                                  gt_bboxes, gt_obboxes, gt_labels, gt_masks,
                                                  gt_bboxes_ignore, gt_obboxes_ignore
                                                  ,**kwargs)
+        # print('losses: before update roi_losses: ', roi_losses)
         losses.update(roi_losses)
+        # print('losses: after update roi_losses: ', losses)
 
         return losses
 
@@ -203,6 +233,7 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
         return await self.roi_head.async_simple_test(
             x, proposal_list, img_meta, rescale=rescale)
 
+    # 测试函数入口：model()
     def simple_test(self, img, img_metas, proposals=None, rescale=False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
@@ -214,7 +245,7 @@ class OBBTwoStageDetector(OBBBaseDetector, RotateAugRPNTestMixin):
         else:
             proposal_list = proposals
 
-        return self.roi_head.simple_test(
+        return self.roi_head.simple_test(  # 测试时，函数进入obba_standard_roi_head.simple_test
             x, proposal_list, img_metas, rescale=rescale)
 
     def aug_test(self, imgs, img_metas, rescale=False):

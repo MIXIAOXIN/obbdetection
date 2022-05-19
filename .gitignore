@@ -130,3 +130,8 @@ roadmark-logs/
 
 # new tools
 DetVisGUI/
+
+# tempoorary road marking results
+roadmark-results/
+*.ods
+

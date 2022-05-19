@@ -50,10 +50,16 @@ class BaseDenseHead(nn.Module, metaclass=ABCMeta):
         if gt_labels is None:
             loss_inputs = outs + (gt_bboxes, img_metas)
         else:
+            print(
+                'ground truth bboxes in base_dense_head.py: ', gt_bboxes
+            )
             loss_inputs = outs + (gt_bboxes, gt_labels, img_metas)
         losses = self.loss(*loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore)
         if proposal_cfg is None:
+            #print('obb dense head: ', losses)
             return losses
         else:
             proposal_list = self.get_bboxes(*outs, img_metas, cfg=proposal_cfg)
+            # print('obb dense head with proposals: ', losses)  # loss_rpn_cls: 5 (5 levels)； loss_rpn_bbox: 5 (5 levels)
+            # print('proposal list: ', len(proposal_list), '\n', proposal_list[0].shape)  # len(proposal_list) = batch_size; proposal_list[0].shape = [2000, 6], 2000 proposals, 6 :[x, y, w, h, objectiveness_score]
             return losses, proposal_list

@@ -89,7 +89,9 @@ def arb2result_attr(bboxes, labels, attrs, num_classes, bbox_type='hbb'):
     bbox_dim = get_bbox_dim(bbox_type, with_score=True)
 
     if bboxes.shape[0] == 0:
-        return [np.zeros((0, bbox_dim), dtype=np.float32) for i in range(num_classes)]
+        #return [np.zeros((0, bbox_dim), dtype=np.float32) for i in range(num_classes)]  # for bbox with score
+        return [np.zeros((0, bbox_dim + 1), dtype=np.float32) for i in range(num_classes)]  # for bbox with score & attr
+
     else:
         bboxes = bboxes.cpu().numpy()
         labels = labels.cpu().numpy()
@@ -98,8 +100,8 @@ def arb2result_attr(bboxes, labels, attrs, num_classes, bbox_type='hbb'):
         # print('predicted bboxes:', bboxes)
         # print('predicted labels:', labels)
         # print('predicted attrs:', attrs)
-        print('predicted attrs:', attrs.shape)
-        print('predicted bboxes:', bboxes.shape)
+        # print('predicted attrs:', attrs.shape)
+        # print('predicted bboxes:', bboxes.shape)
         # print('predicted bboxes:', bboxes.shape[0])
         # print('predicted attrs:', attrs.shape[0])
 

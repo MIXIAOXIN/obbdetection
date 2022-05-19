@@ -3,6 +3,7 @@ import os
 
 import mmcv
 import torch
+import numpy as np
 from mmcv import Config, DictAction
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import get_dist_info, init_dist, load_checkpoint
@@ -13,11 +14,13 @@ from mmdet.core import wrap_fp16_model
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.models import build_detector
 
+import csv
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('--config', type=str, default='./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_1x_ms_rr_roadmark.py', help='test config file path')
+    parser.add_argument('--config', type=str, default='./../configs/obb/oriented_rcnn/faster_rcnn_orpn_r50_fpn_2x_ms_rr_roadmark.py', help='test config file path')
     parser.add_argument('--checkpoint', type=str, default='./../roadmark-logs/epoch_24.pth', help='checkpoint file')
     parser.add_argument('--out', help='output result file in pickle format')
     parser.add_argument(
@@ -38,7 +41,7 @@ def parse_args():
         default='mAP',
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC')
-    parser.add_argument('--show', action='store_true', help='show results')
+    parser.add_argument('--show', default=False, action='store_true', help='show results')
     parser.add_argument(
         '--show-dir',
         type=str,
@@ -49,6 +52,16 @@ def parse_args():
         type=float,
         default=0.3,
         help='score threshold (default: 0.3)')
+    parser.add_argument(
+        '--proj-collect',
+        type=int,
+        default=1,
+        help='collect results from coordinates projection')
+    parser.add_argument(
+        '--coor-params-dir',
+        type=str,
+        default='./../data/roadmarking-30m/coorParam',
+        help='directory where image coordinate transformation parameters')
     parser.add_argument(
         '--gpu-collect',
         action='store_true',
@@ -141,6 +154,45 @@ def main():
             broadcast_buffers=False)
         outputs = multi_gpu_test(model, data_loader, args.tmpdir,
                                  args.gpu_collect)
+
+
+    if args.proj_collect:
+        imgset_ids = [item['id'] for item in dataset.data_infos]
+        print('imgset ids, ', imgset_ids)
+        print('dataset.data_infos: ', dataset.CLASSES)
+        imgset_params = dataset.load_coordinate_parameters(imgset_ids, args.coor_params_dir)
+        #print('imgset_parameters: ', imgset_params)
+        world_results = dataset.transform_results(outputs, imgset_params, dataset.img_prefix)
+        # print('world coordinates: ', world_results, '\n', 'len(world_results): ', len(world_results))
+        if args.show or args.show_dir:
+            merged_filename = os.path.join(args.show_dir, 'world_plybboxes.txt')
+            with open(merged_filename, 'w') as f_out:
+                writer=csv.writer(f_out)
+                for img_dets in world_results:
+                    plys = img_dets['bbox']
+                    imgid = img_dets['imgid']
+                    for ply in plys:
+                        ### 一个点写一行 ########
+                        # p1 = ply[0:3]
+                        # p2 = ply[3:6]
+                        # p3 = ply[6:9]
+                        # p4 = ply[9:12]
+                        score = ply[12]
+                        label_id = int(ply[14])
+                        ply = ply.astype(str)
+                        ply[14] = ply[14] if dataset.CLASSES is None else dataset.CLASSES[label_id]
+                        # if score > args.show_score_thr:
+                            # writer.writerow(p1)
+                            # writer.writerow(p2)
+                            # writer.writerow(p3)
+                            # writer.writerow(p4)
+
+                        ### 一个obbox写一行 ######
+                        if score > args.show_score_thr:
+                            ply= np.append(ply, imgid)
+                            writer.writerow(ply)
+            f_out.close()
+
 
     rank, _ = get_dist_info()
     if rank == 0:

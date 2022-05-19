@@ -171,14 +171,34 @@ class OBBAnchorHead(BaseDenseHead):
         multi_level_anchors = self.anchor_generator.grid_anchors(
             featmap_sizes, device)
         anchor_list = [multi_level_anchors for _ in range(num_imgs)]
+        # print(
+        #     'multi level anchors: ', len(multi_level_anchors), '\n',
+        #     'p2 feature map: ', featmap_sizes[0], '\n',
+        #     'p2 level anchor: ', multi_level_anchors[0].shape, '\n',  # 3 * p2_height * p2_width
+        #     'p3 feature map: ', featmap_sizes[1], '\n',
+        #     'p3 level anchor: ', multi_level_anchors[1].shape, '\n',  # 3 * p3_height * p3_width
+        #     'p4 level anchor: ', multi_level_anchors[2].shape, '\n',
+        #     'p5 level anchor: ', multi_level_anchors[3].shape, '\n',
+        #     'p6 level anchor: ', multi_level_anchors[4].shape, '\n'
+        # )
 
         # for each image, we compute valid flags of multi level anchors
         valid_flag_list = []
         for img_id, img_meta in enumerate(img_metas):
             multi_level_flags = self.anchor_generator.valid_flags(
                 featmap_sizes, img_meta['pad_shape'], device)
+            # print(
+            #     'multilevel flags: ', len(multi_level_flags), '\n',
+            #     'p2 flags: ', multi_level_flags[0].shape, '\n',
+            #     'p3 flags: ', multi_level_flags[1].shape, '\n',
+            #     'p4 flags: ', multi_level_flags[2].shape, '\n',
+            #     'p5 flags: ', multi_level_flags[3].shape, '\n',
+            #     'p6 flags: ', multi_level_flags[4].shape, '\n',
+            #     'p6 flags: ', multi_level_flags[4]
+            # )
             valid_flag_list.append(multi_level_flags)
-
+        # print('anchor list', len(anchor_list), '\n',
+        #       'valid flag_list', len(valid_flag_list))
         return anchor_list, valid_flag_list
 
     def _get_targets_single(self,
@@ -224,7 +244,7 @@ class OBBAnchorHead(BaseDenseHead):
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
         if not inside_flags.any():
-            return (None, ) * 6
+            return (None, ) * 6  # obb regression parameters
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
 
@@ -428,6 +448,10 @@ class OBBAnchorHead(BaseDenseHead):
                                       1).reshape(-1, self.cls_out_channels)
         loss_cls = self.loss_cls(
             cls_score, labels, label_weights, avg_factor=num_total_samples)
+        # print('cls_score_rpn.shape', cls_score.shape, '\n'
+        #       'cls_label_rpn.shape', labels.shape, '\n',
+        #       'label_weights.shape', label_weights, '\n',
+        #       'avg_factor: ', num_total_samples)
         # regression loss
         target_dim = self.reg_dim if not self.reg_decoded_bbox else \
                 get_bbox_dim(self.bbox_type)
@@ -479,6 +503,13 @@ class OBBAnchorHead(BaseDenseHead):
         anchor_list, valid_flag_list = self.get_anchors(
             featmap_sizes, img_metas, device=device)
         label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
+        # print('first stage, label_channels: ', label_channels)
+        # print('anchor list shape ', anchor_list)
+        # print(
+        #     'ground truth bboxes: ', gt_bboxes
+        # )
+
+
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
@@ -500,9 +531,11 @@ class OBBAnchorHead(BaseDenseHead):
         concat_anchor_list = []
         for i in range(len(anchor_list)):
             concat_anchor_list.append(torch.cat(anchor_list[i]))
+
         all_anchor_list = images_to_levels(concat_anchor_list,
                                            num_level_anchors)
 
+        # 逐层计算每个分类loss和回归loss
         losses_cls, losses_bbox = multi_apply(
             self.loss_single,
             cls_scores,
@@ -513,6 +546,9 @@ class OBBAnchorHead(BaseDenseHead):
             bbox_targets_list,
             bbox_weights_list,
             num_total_samples=num_total_samples)
+        # print('cls_loss ', losses_cls, '\n',
+        #       'bbox loss', losses_bbox)  # p2 - p6 返回6个level的loss的list
+        #
         return dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds'))
@@ -588,10 +624,11 @@ class OBBAnchorHead(BaseDenseHead):
             ]
             img_shape = img_metas[img_id]['img_shape']
             scale_factor = img_metas[img_id]['scale_factor']
-            proposals = self._get_bboxes_single(cls_score_list, bbox_pred_list,
+            proposals = self._get_bboxes_single(cls_score_list, bbox_pred_list,  # this function call from oriented_rpn_head.py
                                                 mlvl_anchors, img_shape,
                                                 scale_factor, cfg, rescale)
             result_list.append(proposals)
+        #print('result_list length ', len(result_list))
         return result_list
 
     def _get_bboxes_single(self,
@@ -631,6 +668,7 @@ class OBBAnchorHead(BaseDenseHead):
         for cls_score, bbox_pred, anchors in zip(cls_score_list,
                                                  bbox_pred_list, mlvl_anchors):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
+
             cls_score = cls_score.permute(1, 2,
                                           0).reshape(-1, self.cls_out_channels)
             if self.use_sigmoid_cls:

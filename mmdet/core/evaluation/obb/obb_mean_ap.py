@@ -97,22 +97,35 @@ def tpfp_default(det_bboxes,
 
     # if there is no gt bboxes in this image, then all det bboxes
     # within area range are false positives
+    # print('detected bboxes: ', det_bboxes)
+    # print('gt bboxes: ', gt_bboxes)
     if gt_bboxes.shape[0] == 0:
         if area_ranges == [(None, None)]:
             fp[...] = 1
         else:
-            det_areas = bt.bbox_areas(det_bboxes[:, :-1])  #-------------------------------------------------
+            ###################################################################################
+            #det_areas = bt.bbox_areas(det_bboxes[:, :-1])  # for obb without attr --------------
+            det_areas = bt.bbox_areas(det_bboxes[:, :-2])  # for obb with attr ------------------
+            ###################################################################################
             for i, (min_area, max_area) in enumerate(area_ranges):
                 fp[i, (det_areas >= min_area) & (det_areas < max_area)] = 1
         return tp, fp
+    ###################################################################################
+    # for obb only
+    #ious = bt.bbox_overlaps(det_bboxes[:, :-1], gt_bboxes) #------------------------------
+    # for obb with attr
+    ious = bt.bbox_overlaps(det_bboxes[:, :-2], gt_bboxes) #------------------------------
+    ###################################################################################
 
-    ious = bt.bbox_overlaps(det_bboxes[:, :-1], gt_bboxes) #------------------------------
     # for each det, the max iou with all gts
     ious_max = ious.max(axis=1)
     # for each det, which gt overlaps most with it
     ious_argmax = ious.argmax(axis=1)
     # sort all dets in descending order by scores
-    sort_inds = np.argsort(-det_bboxes[:, -1])
+    ###################################################################################
+    #sort_inds = np.argsort(-det_bboxes[:, -1]) # for obb only
+    sort_inds = np.argsort(-det_bboxes[:, -2])  # for obb with attr
+    ###################################################################################
     for k, (min_area, max_area) in enumerate(area_ranges):
         gt_covered = np.zeros(num_gts, dtype=bool)
         # if no area range is specified, gt_area_ignore is all False
@@ -135,7 +148,10 @@ def tpfp_default(det_bboxes,
             elif min_area is None:
                 fp[k, i] = 1
             else:
-                bbox = det_bboxes[i:i+1, :-1]
+                ###################################################################################
+                #bbox = det_bboxes[i:i+1, :-1]   # obb only
+                bbox = det_bboxes[i:i + 1, :-2] # obb with attr
+                ###################################################################################
                 area = bt.bbox_areas(bbox)    #--------------------------------------------
                 if area >= min_area and area < max_area:
                     fp[k, i] = 1
@@ -165,7 +181,8 @@ def get_cls_results(det_results, annotations, class_id):
             ignore_inds = ann['labels_ignore'] == class_id
             cls_gts_ignore.append(ann['bboxes_ignore'][ignore_inds, :])
         else:
-            cls_gts_ignore.append(np.empty((0, bbox_dim), dtype=np.float32))  #----------------------------
+            cls_gts_ignore.append(np.empty((0, bbox_dim), dtype=np.float32))  # ----------------------------
+
 
     return cls_dets, cls_gts, cls_gts_ignore
 
@@ -210,12 +227,11 @@ def eval_arb_map(det_results,
     """
     assert len(det_results) == len(annotations)
 
-    num_imgs = len(det_results)
+    num_imgs = len(det_results)      # number of images in evaluation
     num_scales = len(scale_ranges) if scale_ranges is not None else 1
     num_classes = len(det_results[0])  # positive class num
     area_ranges = ([(rg[0]**2, rg[1]**2) for rg in scale_ranges]
                    if scale_ranges is not None else None)
-
     pool = Pool(nproc)
     eval_results = []
     for i in range(num_classes):
@@ -245,13 +261,16 @@ def eval_arb_map(det_results,
         # sort all det bboxes by score, also sort tp and fp
         cls_dets = np.vstack(cls_dets)
         num_dets = cls_dets.shape[0]
-        sort_inds = np.argsort(-cls_dets[:, -1])
+
+        # sort_inds = np.argsort(-cls_dets[:, -1])   # for obb without attr ---------------------------------------
+        sort_inds = np.argsort(-cls_dets[:, -2])     # for obb with atrr ---------------------------------------
         tp = np.hstack(tp)[:, sort_inds]
         fp = np.hstack(fp)[:, sort_inds]
         # calculate recall and precision with tp and fp
         tp = np.cumsum(tp, axis=1)
         fp = np.cumsum(fp, axis=1)
         eps = np.finfo(np.float32).eps
+        # print('eps: ', eps, '\n', 'num_gts: ', num_gts[:, np.newaxis])
         recalls = tp / np.maximum(num_gts[:, np.newaxis], eps)
         precisions = tp / np.maximum((tp + fp), eps)
         # calculate AP
@@ -260,7 +279,19 @@ def eval_arb_map(det_results,
             precisions = precisions[0, :]
             num_gts = num_gts.item()
         mode = 'area' if not use_07_metric else '11points'
+
+        # print('tp: ', tp, '\n',
+        #       'fp: ', fp, '\n',
+        #       'recalls: ', recalls, '\n', 'precision: ', precisions)
         ap = average_precision(recalls, precisions, mode)
+        # print('tp: ', tp, '\n',
+        #       'fp: ', fp, '\n',
+        #       'recalls: ', recalls, '\n',
+        #       'precision: ', precisions, '\n',
+        #       'num_gts: ', num_gts, '\n',
+        #       'num_detects: ', num_dets, '\n',
+        #       'ap: ', ap)
+        # print('ap: ', ap)
         eval_results.append({
             'num_gts': num_gts,
             'num_dets': num_dets,
